@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0f172a;
+    --surface:  #1e293b;
+    --surface2: #0f172a;
+    --border:   #334155;
+    --text:     #e2e8f0;
+    --muted:    #94a3b8;
+    --green:    #4ade80;
+    --green-bg: rgba(22,163,74,.13);
+    --green-br: #16a34a;
+    --red:      #f87171;
+    --red-bg:   rgba(220,38,38,.13);
+    --red-br:   #dc2626;
+    --blue:     #60a5fa;
+    --blue-bg:  rgba(37,99,235,.13);
+    --blue-br:  #2563eb;
+    --orange:   #fb923c;
+    --orange-bg:rgba(217,119,6,.13);
+    --orange-br:#d97706;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    gap: 16px;
+  }
+
+  /* ── Header ── */
+  .header { text-align: center; }
+  .header h1 { font-size: 1.7rem; font-weight: 800; letter-spacing: -.02em; }
+  .header p  { color: var(--muted); font-size: .85rem; margin-top: 5px; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border-radius: 18px;
+    padding: 24px 26px;
+    width: 100%;
+    max-width: 460px;
+    box-shadow: 0 8px 40px rgba(0,0,0,.35);
+  }
+  .card-title {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── Status rows ── */
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .92rem;
+  }
+  .row:last-child { border-bottom: none; }
+  .label { color: var(--muted); }
+
+  /* ── Badges ── */
+  .badge {
+    padding: 3px 13px;
+    border-radius: 999px;
+    font-size: .76rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    border: 1px solid transparent;
+  }
+  .badge-on     { background: var(--green-bg);  color: var(--green);  border-color: var(--green-br); }
+  .badge-off    { background: var(--red-bg);     color: var(--red);    border-color: var(--red-br); }
+  .badge-auto   { background: var(--blue-bg);    color: var(--blue);   border-color: var(--blue-br); }
+  .badge-manual { background: var(--orange-bg);  color: var(--orange); border-color: var(--orange-br); }
+  .badge-online { background: var(--green-bg);   color: var(--green);  border-color: var(--green-br); }
+  .badge-away   { background: var(--orange-bg);  color: var(--orange); border-color: var(--orange-br); }
+  .badge-offline{ background: var(--red-bg);     color: var(--red);    border-color: var(--red-br); }
+
+  /* ── Big relay indicator ── */
+  .relay-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 22px 0 18px;
+  }
+  .relay-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    transition: background .4s, box-shadow .4s;
+  }
+  .relay-circle.on {
+    background: var(--green-bg);
+    box-shadow: 0 0 28px rgba(74,222,128,.25);
+    border: 2px solid var(--green-br);
+  }
+  .relay-circle.off {
+    background: var(--red-bg);
+    box-shadow: 0 0 28px rgba(248,113,113,.15);
+    border: 2px solid var(--red-br);
+  }
+  .relay-text h2 { font-size: 1.4rem; font-weight: 800; }
+  .relay-text p  { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+
+  /* ── Control buttons ── */
+  .control-title {
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .btn {
+    flex: 1;
+    padding: 15px 0;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s, box-shadow .15s;
+    letter-spacing: .01em;
+  }
+  .btn:hover  { opacity: .88; }
+  .btn:active { transform: scale(.96); }
+
+  .btn-on {
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(22,163,74,.35);
+  }
+  .btn-off {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(220,38,38,.35);
+  }
+  .btn-auto {
+    width: 100%;
+    padding: 14px 0;
+    border: none;
+    border-radius: 12px;
+    font-size: .95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(37,99,235,.3);
+  }
+  .btn-auto:hover  { opacity: .88; }
+  .btn-auto:active { transform: scale(.98); }
+
+  .btn-hint {
+    color: var(--muted);
+    font-size: .75rem;
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  /* ── Schedule info ── */
+  .sched {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: .83rem;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+  .sched strong { color: var(--text); }
+
+  /* ── Dot pulse ── */
+  .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+    background: var(--green);
+    animation: blink 1.4s infinite;
+  }
+  .dot.offline { background: var(--red); animation: none; }
+  .dot.away    { background: var(--orange); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(90px);
+    background: #1e293b;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 11px 24px;
+    border-radius: 12px;
+    font-size: .85rem;
+    font-weight: 600;
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 24px rgba(0,0,0,.4);
+    z-index: 99;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .footer-note { color: var(--muted); font-size: .75rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <h1>⚡ Relay Dashboard</h1>
+  <p>ESP32 + DS1302 RTC &nbsp;·&nbsp; HTTP Control</p>
+</div>
+
+<!-- Status Card -->
+<div class="card">
+  <div class="card-title">📊 Live Status</div>
+
+  <div class="relay-indicator">
+    <div class="relay-circle off" id="relay-circle">💡</div>
+    <div class="relay-text">
+      <h2 id="relay-text">OFF</h2>
+      <p id="mode-text">Auto (RTC Schedule)</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <span class="label">📡 ESP32</span>
+    <span class="badge badge-away" id="online-badge">
+      <span class="dot away" id="online-dot"></span>Checking…
+    </span>
+  </div>
+  <div class="row">
+    <span class="label">🕐 RTC Time</span>
+    <strong id="rtc-time">—</strong>
+  </div>
+  <div class="row">
+    <span class="label">⚙️ Mode</span>
+    <span class="badge badge-auto" id="mode-badge">Auto (RTC)</span>
+  </div>
+  <div class="row">
+    <span class="label">🕑 Last Heartbeat</span>
+    <span id="last-seen" style="color:var(--muted);font-size:.85rem">—</span>
+  </div>
+</div>
+
+<!-- Control Card -->
+<div class="card">
+  <div class="control-title">🎛️ Relay Control</div>
+
+  <div class="btn-row">
+    <button class="btn btn-on"  onclick="sendCmd('on')">
+      ✅ &nbsp;Turn ON
+    </button>
+    <button class="btn btn-off" onclick="sendCmd('off')">
+      ❌ &nbsp;Turn OFF
+    </button>
+  </div>
+  <button class="btn-auto" onclick="sendCmd('auto')">
+    🔄 &nbsp;Return to Auto Schedule
+  </button>
+
+  <p class="btn-hint">Commands are delivered to ESP32 within 10 seconds.</p>
+</div>
+
+<!-- Schedule Card -->
+<div class="card">
+  <div class="card-title">📅 Auto Schedule</div>
+  <div class="sched">
+    <span class="dot" id="rtc-dot"></span>Runs from <strong>DS1302 RTC</strong> on ESP32 — works even if internet is down.<br><br>
+    🟢 Relay <strong>ON</strong> &nbsp;→ <strong>09:30 AM</strong><br>
+    🔴 Relay <strong>OFF</strong> → <strong>06:00 PM</strong><br><br>
+    Manual override suspends the schedule until you click <em>Return to Auto</em>.
+  </div>
+</div>
+
+<p class="footer-note">Auto-refreshes every 5 seconds</p>
+
+<!-- Toast notification -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Toast ────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ── Send control command ─────────────────────────────────
+  async function sendCmd(action) {
+    const labels = { on: 'Turn ON', off: 'Turn OFF', auto: 'Return to Auto' };
+    try {
+      const r = await fetch('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        showToast('✅ Command queued: ' + labels[action]);
+        // Poll immediately so UI feels snappy
+        setTimeout(pollState, 300);
+      } else {
+        showToast('❌ Error: ' + (d.error || 'unknown'));
+      }
+    } catch (e) {
+      showToast('❌ Network error — check connection');
+    }
+  }
+
+  // ── Poll state from server ───────────────────────────────
+  async function pollState() {
+    try {
+      const r = await fetch('/api/state');
+      const d = await r.json();
+
+      // Big relay indicator
+      const circle = document.getElementById('relay-circle');
+      const relayTxt = document.getElementById('relay-text');
+      if (d.relay === 'on') {
+        circle.className = 'relay-circle on';
+        relayTxt.textContent = 'ON';
+        relayTxt.style.color = '#4ade80';
+      } else {
+        circle.className = 'relay-circle off';
+        relayTxt.textContent = 'OFF';
+        relayTxt.style.color = '#f87171';
+      }
+
+      // Mode text under big indicator
+      const modeP = document.getElementById('mode-text');
+      modeP.textContent = d.mode === 'auto' ? 'Auto (RTC Schedule)' : 'Manual Override';
+      modeP.style.color = d.mode === 'auto' ? '#60a5fa' : '#fb923c';
+
+      // Mode badge
+      const mb = document.getElementById('mode-badge');
+      if (d.mode === 'auto') {
+        mb.textContent = 'Auto (RTC)';
+        mb.className = 'badge badge-auto';
+      } else {
+        mb.textContent = 'Manual';
+        mb.className = 'badge badge-manual';
+      }
+
+      // RTC time
+      document.getElementById('rtc-time').textContent = d.rtcTime || '—';
+
+      // Online badge
+      const ob   = document.getElementById('online-badge');
+      const dot  = document.getElementById('online-dot');
+      const sec  = d.onlineSeconds;
+      if (sec === null || sec === undefined) {
+        ob.innerHTML  = '<span class="dot offline"></span>Never seen';
+        ob.className  = 'badge badge-offline';
+      } else if (sec < 30) {
+        ob.innerHTML  = '<span class="dot"></span>Online';
+        ob.className  = 'badge badge-online';
+      } else if (sec < 120) {
+        ob.innerHTML  = `<span class="dot away"></span>Away (${sec}s ago)`;
+        ob.className  = 'badge badge-away';
+      } else {
+        ob.innerHTML  = '<span class="dot offline"></span>Offline';
+        ob.className  = 'badge badge-offline';
+      }
+
+      // Last heartbeat time
+      if (d.lastSeen) {
+        const t = new Date(d.lastSeen);
+        document.getElementById('last-seen').textContent = t.toLocaleTimeString();
+      }
+
+    } catch (e) {
+      console.warn('Poll error:', e);
+    }
+  }
+
+  pollState();
+  setInterval(pollState, 5000);
+</script>
+</body>
+</html>
