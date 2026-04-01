@@ -13,6 +13,7 @@
     --red:#f87171;   --red-bg:rgba(220,38,38,.13);   --red-br:#dc2626;
     --blue:#60a5fa;  --blue-bg:rgba(37,99,235,.13);  --blue-br:#2563eb;
     --orange:#fb923c;--orange-bg:rgba(217,119,6,.13);--orange-br:#d97706;
+    --purple:#c084fc;--purple-bg:rgba(124,58,237,.13);--purple-br:#7c3aed;
   }
   body {
     background:var(--bg); color:var(--text);
@@ -42,13 +43,24 @@
     padding:3px 13px; border-radius:999px; font-size:.76rem;
     font-weight:700; letter-spacing:.05em; border:1px solid transparent;
   }
-  .badge-on     { background:var(--green-bg);  color:var(--green);  border-color:var(--green-br); }
-  .badge-off    { background:var(--red-bg);     color:var(--red);    border-color:var(--red-br); }
-  .badge-auto   { background:var(--blue-bg);    color:var(--blue);   border-color:var(--blue-br); }
-  .badge-manual { background:var(--orange-bg);  color:var(--orange); border-color:var(--orange-br); }
-  .badge-online { background:var(--green-bg);   color:var(--green);  border-color:var(--green-br); }
-  .badge-away   { background:var(--orange-bg);  color:var(--orange); border-color:var(--orange-br); }
-  .badge-offline{ background:var(--red-bg);     color:var(--red);    border-color:var(--red-br); }
+  .badge-on      { background:var(--green-bg);  color:var(--green);  border-color:var(--green-br); }
+  .badge-off     { background:var(--red-bg);     color:var(--red);    border-color:var(--red-br); }
+  .badge-auto    { background:var(--blue-bg);    color:var(--blue);   border-color:var(--blue-br); }
+  .badge-manual  { background:var(--orange-bg);  color:var(--orange); border-color:var(--orange-br); }
+  .badge-online  { background:var(--green-bg);   color:var(--green);  border-color:var(--green-br); }
+  .badge-away    { background:var(--orange-bg);  color:var(--orange); border-color:var(--orange-br); }
+  .badge-offline { background:var(--red-bg);     color:var(--red);    border-color:var(--red-br); }
+
+  /* Manual mode warning banner */
+  .manual-banner {
+    display:none;
+    background:var(--orange-bg); border:1px solid var(--orange-br);
+    border-radius:10px; padding:10px 14px;
+    font-size:.83rem; color:var(--orange);
+    margin-bottom:0; text-align:center; line-height:1.5;
+  }
+  .manual-banner.show { display:block; }
+
   .relay-indicator {
     display:flex; align-items:center; justify-content:center;
     gap:14px; padding:22px 0 18px;
@@ -113,7 +125,7 @@
     font-size:.85rem; color:var(--muted); line-height:1.8;
   }
   .current-sched strong { color:var(--text); }
-  .sched-note { color:var(--muted); font-size:.75rem; text-align:center; margin-top:10px; }
+  .sched-note { color:var(--muted); font-size:.75rem; text-align:center; margin-top:10px; line-height:1.6; }
   .dot {
     display:inline-block; width:7px; height:7px; border-radius:50%;
     margin-right:5px; vertical-align:middle;
@@ -149,7 +161,7 @@
     <div class="relay-circle off" id="relay-circle">💡</div>
     <div class="relay-text">
       <h2 id="relay-text" style="color:#f87171">OFF</h2>
-      <p id="mode-text">Auto (RTC Schedule)</p>
+      <p id="mode-text">Auto Schedule</p>
     </div>
   </div>
   <div class="row">
@@ -161,8 +173,8 @@
     <strong id="rtc-time">—</strong>
   </div>
   <div class="row">
-    <span class="label">⚙️ Mode</span>
-    <span class="badge badge-auto" id="mode-badge">Auto (RTC)</span>
+    <span class="label">⚙️ Server Mode</span>
+    <span class="badge badge-auto" id="mode-badge">Auto Schedule</span>
   </div>
   <div class="row">
     <span class="label">🕑 Last Heartbeat</span>
@@ -173,6 +185,14 @@
 <!-- Control Card -->
 <div class="card">
   <div class="card-title">🎛️ Relay Control</div>
+
+  <!-- Shows when manual mode is active -->
+  <div class="manual-banner" id="manual-banner">
+    ⚠️ Manual mode active — auto schedule is paused.<br>
+    Click <strong>Return to Auto Schedule</strong> to resume.
+  </div>
+  <br id="banner-spacer" style="display:none">
+
   <div class="btn-row">
     <button class="btn btn-on"  onclick="sendCmd('on')">✅ &nbsp;Turn ON</button>
     <button class="btn btn-off" onclick="sendCmd('off')">❌ &nbsp;Turn OFF</button>
@@ -204,8 +224,8 @@
     💾 &nbsp;Save New Schedule
   </button>
   <p class="sched-note">
-    WiFi OK → server sends command to ESP within 10s<br>
-    WiFi fail → ESP uses this schedule from its own RTC
+    WiFi OK → server sends command within 10s<br>
+    WiFi fail → ESP uses this schedule from DS1302 RTC
   </p>
 </div>
 
@@ -277,7 +297,7 @@
         body: JSON.stringify({ action })
       });
       const d = await r.json();
-      if (d.ok) { showToast('✅ Queued: ' + labels[action]); setTimeout(pollState, 400); }
+      if (d.ok) { showToast('✅ Queued: ' + labels[action]); setTimeout(pollState, 500); }
       else showToast('❌ Error: ' + (d.error || 'unknown'));
     } catch(e) { showToast('❌ Network error'); }
   }
@@ -287,6 +307,7 @@
       const r = await fetch('/api/state');
       const d = await r.json();
 
+      // Relay indicator
       const circle = document.getElementById('relay-circle');
       const rtxt   = document.getElementById('relay-text');
       if (d.relay === 'on') {
@@ -295,16 +316,26 @@
         circle.className = 'relay-circle off'; rtxt.textContent = 'OFF'; rtxt.style.color = '#f87171';
       }
 
-      const mp = document.getElementById('mode-text');
-      mp.textContent = d.mode === 'auto' ? 'Auto (RTC Schedule)' : 'Manual Override';
-      mp.style.color = d.mode === 'auto' ? '#60a5fa' : '#fb923c';
+      // Server mode badge + manual banner
+      const mb     = document.getElementById('mode-badge');
+      const mp     = document.getElementById('mode-text');
+      const banner = document.getElementById('manual-banner');
+      const spacer = document.getElementById('banner-spacer');
 
-      const mb = document.getElementById('mode-badge');
-      mb.textContent = d.mode === 'auto' ? 'Auto (RTC)' : 'Manual';
-      mb.className   = 'badge ' + (d.mode === 'auto' ? 'badge-auto' : 'badge-manual');
+      if (d.serverManualMode) {
+        mb.textContent = 'Manual'; mb.className = 'badge badge-manual';
+        mp.textContent = 'Manual Override'; mp.style.color = '#fb923c';
+        banner.classList.add('show'); spacer.style.display = 'block';
+      } else {
+        mb.textContent = 'Auto Schedule'; mb.className = 'badge badge-auto';
+        mp.textContent = 'Auto Schedule';  mp.style.color = '#60a5fa';
+        banner.classList.remove('show'); spacer.style.display = 'none';
+      }
 
+      // RTC time
       document.getElementById('rtc-time').textContent = d.rtcTime || '—';
 
+      // Online badge
       const ob  = document.getElementById('online-badge');
       const sec = d.onlineSeconds;
       if (sec === null || sec === undefined) {
@@ -317,10 +348,11 @@
         ob.innerHTML = '<span class="dot offline"></span>Offline';    ob.className = 'badge badge-offline';
       }
 
+      // Last heartbeat
       if (d.lastSeen)
         document.getElementById('last-seen').textContent = new Date(d.lastSeen).toLocaleTimeString();
 
-      // Update schedule display if it came with state
+      // Schedule display
       if (d.schedule) {
         document.getElementById('cur-on').textContent  = fmt(d.schedule.onHour,  d.schedule.onMin);
         document.getElementById('cur-off').textContent = fmt(d.schedule.offHour, d.schedule.offMin);
